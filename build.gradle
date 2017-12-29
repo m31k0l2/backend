@@ -1,0 +1,74 @@
+group 'mysite'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    ext.kotlin_version = '1.2.0'
+    ext.ktor_version = '0.4.0'
+    ext.squash_version = '0.2.3'
+
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'kotlin'
+apply plugin: 'application'
+apply plugin: 'war'
+
+//mainClassName = 'org.jetbrains.ktor.servlet.ServletApplicationHost'
+mainClassName = 'org.jetbrains.ktor.netty.DevelopmentHost'
+
+sourceCompatibility = 1.8
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+kotlin {
+    experimental {
+        coroutines "enable"
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://dl.bintray.com/kotlin/kotlinx" }
+    maven { url "https://dl.bintray.com/kotlin/ktor" }
+    maven { url "https://dl.bintray.com/kotlin/exposed" }
+    maven { url "https://dl.bintray.com/kotlin/squash/" }
+}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile "org.jetbrains.ktor:ktor-core:$ktor_version"
+    compile "org.jetbrains.ktor:ktor-servlet:$ktor_version"
+    compile "org.jetbrains.ktor:ktor-gson:$ktor_version"
+    compile "org.jetbrains.ktor:ktor-locations:$ktor_version"
+    compile "org.jetbrains.ktor:ktor-hosts-common:$ktor_version"
+    compile "ch.qos.logback:logback-classic:1.2.1"
+    compile group: 'joda-time', name: 'joda-time', version: '2.9.9'
+    compile group: 'org.jetbrains.exposed', name: 'exposed', version: '0.8.6'
+    compile "org.jetbrains.squash:squash-h2:$squash_version"
+    compile "org.jetbrains.squash:squash-postgres:$squash_version"
+
+    compile "org.jetbrains.ktor:ktor-netty:$ktor_version"
+    compile group: 'io.netty', name: 'netty-common', version: '4.1.15.Final'
+    compile group: 'io.netty', name: 'netty-codec-http2', version: '4.1.15.Final'
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+task stage(dependsOn: ['build', 'clean'])
+build.mustRunAfter clean
