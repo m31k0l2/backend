@@ -2,7 +2,7 @@ group 'mysite'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.kotlin_version = '1.2.0'
+    ext.kotlin_version = '1.2.10'
     ext.ktor_version = '0.4.0'
     ext.squash_version = '0.2.3'
 

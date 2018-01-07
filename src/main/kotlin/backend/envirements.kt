@@ -8,13 +8,13 @@ import org.jetbrains.ktor.sessions.sessions
 import org.jetbrains.ktor.sessions.set
 import java.util.*
 
-data class UserSession(val userId: String, val secretKey: Int)
+data class UserSession(val sid: String)
 
 var dao: DAOFacade = DAOFacadeDatabase()
 
-fun ApplicationCall.newSession(user: User) {
-    val secretKey = Random(1_000_000).nextInt()
-    val sessionId = user.name + secretKey
-    dao.newSession(sessionId, user.name, user.passwordHash)
-    sessions.set(UserSession(user.name, secretKey))
+fun ApplicationCall.newSession(user: User, token: String?=null) {
+    val salt = Random(1_000_000).nextInt()
+    val sessionId = "${(token ?: user.id).hashCode()}$salt"
+    dao.newSession(sessionId, user.id)
+    sessions.set(UserSession(sessionId))
 }

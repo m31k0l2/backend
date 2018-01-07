@@ -17,11 +17,11 @@ fun Route.commentAdd() = post<CommentAdd> {
         val post = call.receive<ValuesMap>()
         val articleId = post["articleId"]!!.toInt()
         val text = post["text"]!!
-        dao.createComment(Comment(articleId = articleId, author = call.user().name, text = text, date = LocalDateTime.now()))
+        if (text.isEmpty()) throw Exception("Сообщение пустое")
+        dao.createComment(Comment(articleId = articleId, authorId = call.user().id, text = text, date = LocalDateTime.now()))
         val comment = dao.lastComment()!!
-//        val note = dao.noteById(comment.articleId)
-//        if (note == null || !note.published) throw Exception("Комментарий к статье не возможен")
-        call.respond(CommentResponse(RespondComment(comment.id!!, comment.articleId, comment.author, comment.text, comment.date)))
+        val user = dao.user(comment.authorId)!!
+        call.respond(CommentResponse(RespondComment(comment.id!!, comment.articleId, user.name, user.imageURL, comment.text, comment.date)))
     } catch (e: Exception) {
         call.respond(CommentResponse(error = e.message))
     }
@@ -39,9 +39,12 @@ fun Route.commentDelete() = get<CommentDelete> {
 }
 
 fun Route.commentsGet() = get<CommentsGet> {
-    call.respond(dao.comments(it.articleId))
+    call.respond(dao.comments(it.articleId).map {
+        val user = dao.user(it.authorId)!!
+        RespondComment(it.id!!, it.articleId, user.name, user.imageURL, it.text, it.date)
+    })
 }
 
 fun Route.commentsGetByUser() = get<CommentsGetByUser> {
-    call.respond(dao.comments(it.name))
+    call.respond(dao.comments(it.userId))
 }

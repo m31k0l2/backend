@@ -20,10 +20,11 @@ import java.io.File
 interface DAOFacade : Closeable {
     fun init(config: ApplicationConfig)
     fun deleteNote(id: Int)
-    fun deleteUser(name: String)
-    fun user(name: String, hash: String? = null): User?
+    fun deleteUser(userId: String)
+    fun user(id: String, passwordHash: String?=null): User?
     fun users(): List<RespondUser>
     fun createUser(user: User)
+    fun updateUser(user: User)
     fun notes(): List<Note>
     fun note(ref: String): Note?
     fun noteById(id: Int): Note?
@@ -33,11 +34,11 @@ interface DAOFacade : Closeable {
     fun notesCount(): Int
     fun createComment(comment: Comment)
     fun comments(articleId: Int?=null): List<Comment>
-    fun comments(name: String): List<Comment>
+    fun comments(userId: String): List<Comment>
     fun deleteComment(id: Int)
     fun lastComment(): Comment?
-    fun newSession(newSid: String, newLogin: String, newHash: String)
-    fun hashBySid(sid: String): String?
+    fun newSession(newSid: String, newUserId: String)
+    fun userIdBySid(sid: String): String?
     fun closeSession(sid: String)
 }
 
@@ -68,12 +69,11 @@ class DAOFacadeDatabase : DAOFacade {
     fun memConnect() = H2Connection.createMemoryConnection()
     fun createSchema() = db.transaction { databaseSchema().create(listOf(Users, Notes, Comments, Sessions)) }
 
-    override fun newSession(newSid: String, newLogin: String, newHash: String) = db.transaction {
-        deleteFrom(Sessions).where { Sessions.login eq newLogin }.execute()
+    override fun newSession(newSid: String, newUserId: String) = db.transaction {
+        deleteFrom(Sessions).where { Sessions.id eq newUserId }.execute()
         insertInto(Sessions).values {
             it[sid] = newSid
-            it[login] = newLogin
-            it[hash] = newHash
+            it[id] = newUserId
         }.execute()
     }
 
@@ -81,31 +81,61 @@ class DAOFacadeDatabase : DAOFacade {
         deleteFrom(Sessions).where { Sessions.sid eq sid }.execute()
     }
 
-    override fun hashBySid(sid: String) = db.transaction {
-        select().from(Sessions).where { Sessions.sid eq sid }.execute().singleOrNull()?.let { it[Sessions.hash] }
+    override fun userIdBySid(sid: String) = db.transaction {
+        select().from(Sessions).execute().map {
+            val id = it[Sessions.id]
+            val ses_id = it[Sessions.sid]
+            "$id $ses_id"
+        }.forEach {
+            println(it)
+        }
+        select().from(Sessions).where { Sessions.sid eq sid }.execute().singleOrNull()?.let { it[Sessions.id] }
     }
 
-    override fun user(name: String, hash: String?) = db.transaction {
-        val query = select().from(Users).where { Users.name eq name }
+    override fun user(id: String, passwordHash: String?) = db.transaction {
+        select().from(Users).execute().map {
+            "${it[Users.id]}, ${it[Users.name]}, ${it[Users.email]}, ${it[Users.imageURL]}, ${it[Users.passwordHash]}, ${it[Users.isAdmin]}"
+        }.forEach {
+            println(it)
+        }
+        var query = select().from(Users).where { Users.id eq id }
+        if (passwordHash != null) {
+            query = query.where(Users.passwordHash eq passwordHash)
+        }
         query.execute().singleOrNull()?.let {
-            if (hash == null || it[Users.passwordHash] == hash) {
-                User(name, it[Users.passwordHash], it[Users.isAdmin])
-            } else {
-                null
-            }
+            User(   id,
+                    it[Users.name],
+                    it[Users.email],
+                    it[Users.imageURL],
+                    it[Users.passwordHash],
+                    it[Users.isAdmin]
+            )
         }
     }
 
     override fun createUser(user: User) = db.transaction {
         insertInto(Users).values {
+            it[id] = user.id
             it[name] = user.name
+            it[email] = user.email
+            it[imageURL] = user.imageURL
             it[passwordHash] = user.passwordHash
             it[isAdmin] = usersCount() == 0
         }.execute()
     }
 
-    override fun deleteUser(name: String) = db.transaction {
-        deleteFrom(Users).where { Users.name eq name }.execute()
+    override fun updateUser(user: User) = db.transaction {
+        update(Notes).where { Users.id eq user.id }.set {
+            it[Users.name] = user.name
+            it[Users.email] = user.email
+            it[Users.imageURL] = user.imageURL
+            it[Users.passwordHash] = user.passwordHash
+            it[Users.isAdmin] = false
+        }.execute()
+    }
+
+    override fun deleteUser(userId: String) = db.transaction {
+        deleteFrom(Users).where { Users.id eq userId }.execute()
     }
 
     override fun usersCount() = db.transaction {
@@ -114,7 +144,7 @@ class DAOFacadeDatabase : DAOFacade {
 
     override fun users() = db.transaction {
         select().from(Users).execute().map {
-            RespondUser(it[Users.name], it[Users.isAdmin])
+            RespondUser(it[Users.name], it[Users.imageURL], it[Users.isAdmin])
         }.toList().filter { !it.isAdmin!! }
     }
 
@@ -170,7 +200,7 @@ class DAOFacadeDatabase : DAOFacade {
     override fun createComment(comment: Comment) = db.transaction {
         insertInto(Comments).values {
             it[articleId] = comment.articleId
-            it[author] = comment.author
+            it[authorId] = comment.authorId
             it[text] = comment.text
             it[date] = comment.date
         }.execute()
@@ -180,13 +210,13 @@ class DAOFacadeDatabase : DAOFacade {
         var query = select().from(Comments)
         articleId?.let { query = query.where { Comments.articleId eq it } }
         query.execute().map {
-            Comment(it[Comments.id], it[Comments.articleId], it[Comments.author], it[Comments.text], it[Comments.date])
+            Comment(it[Comments.id], it[Comments.articleId], it[Comments.authorId], it[Comments.text], it[Comments.date])
         }.toList()
     }
 
-    override fun comments(name: String) = db.transaction {
-        select().from(Comments).where { Comments.author eq name }.execute().map {
-            Comment(it[Comments.id], it[Comments.articleId], it[Comments.author], it[Comments.text], it[Comments.date])
+    override fun comments(userId: String) = db.transaction {
+        select().from(Comments).where { Comments.authorId eq userId }.execute().map {
+            Comment(it[Comments.id], it[Comments.articleId], it[Comments.authorId], it[Comments.text], it[Comments.date])
         }.toList()
     }
 
@@ -196,7 +226,7 @@ class DAOFacadeDatabase : DAOFacade {
 
     override fun lastComment() = db.transaction {
         select().from(Comments).orderBy { Comments.id }.execute().lastOrNull()?.let {
-            Comment(it[Comments.id], it[Comments.articleId], it[Comments.author], it[Comments.text], it[Comments.date])
+            Comment(it[Comments.id], it[Comments.articleId], it[Comments.authorId], it[Comments.text], it[Comments.date])
         }
     }
 

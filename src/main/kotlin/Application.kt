@@ -48,6 +48,7 @@ fun Application.main() {
         commentsGet()
         register()
         login()
+        oauth()
         logout()
         noteCreate()
         noteUpdate()
