@@ -12,9 +12,9 @@ data class UserSession(val sid: String)
 
 var dao: DAOFacade = DAOFacadeDatabase()
 
-fun ApplicationCall.newSession(user: User, token: String?=null) {
+fun ApplicationCall.newSession(user: User) {
     val salt = Random(1_000_000).nextInt()
-    val sessionId = "${(token ?: user.id).hashCode()}$salt"
+    val sessionId = "${user.id.hashCode()}$salt"
     dao.newSession(sessionId, user.id)
     sessions.set(UserSession(sessionId))
 }

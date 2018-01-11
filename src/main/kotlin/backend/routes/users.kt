@@ -3,6 +3,7 @@ package backend.routes
 import backend.*
 import backend.model.RespondUser
 import backend.model.User
+import backendConfig
 import org.jetbrains.ktor.application.ApplicationCall
 import org.jetbrains.ktor.http.HttpStatusCode
 import org.jetbrains.ktor.locations.get
@@ -14,6 +15,9 @@ import org.jetbrains.ktor.routing.Route
 import org.jetbrains.ktor.sessions.clear
 import org.jetbrains.ktor.sessions.get
 import org.jetbrains.ktor.sessions.sessions
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.jackson2.JacksonFactory
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest
 
 class RegisterException(e: String) : Exception(e)
 
@@ -91,7 +95,7 @@ fun Route.login() = get<Login> {
     }
 }
 
-fun Route.oauth() = post<OAuth> {
+fun Route.oauthGoogle() = post<OAuthGoogle> {
     try {
         val multipart = call.receiveMultipart()
         val post = multipart.parts.mapNotNull {
@@ -103,7 +107,6 @@ fun Route.oauth() = post<OAuth> {
         val name = post["name"]!!
         val email = post["email"]!!
         val imageURL = post["imageURL"]!!
-        val token = post["token"]!!
         var user = dao.user(userId)
         if (user == null) {
             user = User(userId, name, email, imageURL)
@@ -111,7 +114,46 @@ fun Route.oauth() = post<OAuth> {
         } else if (user.name != name || user.email != email || user.imageURL != imageURL) {
             dao.updateUser(user)
         }
-        call.newSession(user, token)
+        call.newSession(user)
+        call.respond(LoginResponse(RespondUser(user.name, user.imageURL, user.isAdmin)))
+    } catch (e: Exception) {
+        call.respond(LoginResponse(error = e.message))
+    }
+}
+
+fun Route.oauthGoogleCode() = get<OAuthGoogleCode> {
+    lateinit var clientId: String
+    lateinit var clientSecret: String
+    lateinit var redirectUri: String
+    with(backendConfig.config("googleOAuth")) {
+        clientId = property("clientId").getString()
+        clientSecret = property("clientSecret").getString()
+        redirectUri = property("redirectUri").getString()
+    }
+    try {
+        val tokenResponse = GoogleAuthorizationCodeTokenRequest(
+                NetHttpTransport(),
+                JacksonFactory.getDefaultInstance(),
+                "https://www.googleapis.com/oauth2/v4/token",
+                clientId,
+                clientSecret,
+                it.auth_code,
+                redirectUri)
+                .execute()
+        val idToken = tokenResponse.parseIdToken()
+        val payload = idToken.payload
+        val userId = payload["sub"] as String
+        val name = payload["name"] as String
+        val email = payload["email"] as String
+        val imageURL = payload["picture"] as String
+        var user = dao.user(userId)
+        if (user == null) {
+            user = User(userId, name, email, imageURL)
+            dao.createUser(user)
+        } else if (user.name != name || user.email != email || user.imageURL != imageURL) {
+            dao.updateUser(user)
+        }
+        call.newSession(user)
         call.respond(LoginResponse(RespondUser(user.name, user.imageURL, user.isAdmin)))
     } catch (e: Exception) {
         call.respond(LoginResponse(error = e.message))

@@ -4,7 +4,8 @@ import org.jetbrains.ktor.locations.location
 
 @location("/user/register") class Register(val name: String, val password: String)
 @location("/user/login") class Login(val name: String, val password: String)
-@location("/user/oauth") class OAuth
+@location("/user/oauth/google") class OAuthGoogle
+@location("/user/oauth/google/code") class OAuthGoogleCode(val auth_code: String)
 @location("/user/logout") class Logout
 @location("/user/get") class UserGet
 @location("/users/get") class UsersGet

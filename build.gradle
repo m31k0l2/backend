@@ -62,6 +62,8 @@ dependencies {
     compile "org.jetbrains.ktor:ktor-netty:$ktor_version"
     compile group: 'io.netty', name: 'netty-common', version: '4.1.15.Final'
     compile group: 'io.netty', name: 'netty-codec-http2', version: '4.1.15.Final'
+    compile 'com.google.apis:google-api-services-oauth2:v1-rev137-1.23.0'
+    compile group: 'com.google.api-client', name: 'google-api-client-appengine', version: '1.23.0'
 }
 
 compileKotlin {

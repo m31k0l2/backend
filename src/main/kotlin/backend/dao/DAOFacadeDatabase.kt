@@ -82,22 +82,10 @@ class DAOFacadeDatabase : DAOFacade {
     }
 
     override fun userIdBySid(sid: String) = db.transaction {
-        select().from(Sessions).execute().map {
-            val id = it[Sessions.id]
-            val ses_id = it[Sessions.sid]
-            "$id $ses_id"
-        }.forEach {
-            println(it)
-        }
         select().from(Sessions).where { Sessions.sid eq sid }.execute().singleOrNull()?.let { it[Sessions.id] }
     }
 
     override fun user(id: String, passwordHash: String?) = db.transaction {
-        select().from(Users).execute().map {
-            "${it[Users.id]}, ${it[Users.name]}, ${it[Users.email]}, ${it[Users.imageURL]}, ${it[Users.passwordHash]}, ${it[Users.isAdmin]}"
-        }.forEach {
-            println(it)
-        }
         var query = select().from(Users).where { Users.id eq id }
         if (passwordHash != null) {
             query = query.where(Users.passwordHash eq passwordHash)
