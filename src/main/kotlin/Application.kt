@@ -4,13 +4,15 @@ import backend.routes.*
 import org.jetbrains.ktor.application.Application
 import org.jetbrains.ktor.application.install
 import org.jetbrains.ktor.config.ApplicationConfig
+import org.jetbrains.ktor.content.TextContent
 import org.jetbrains.ktor.features.CORS
 import org.jetbrains.ktor.features.CallLogging
 import org.jetbrains.ktor.features.DefaultHeaders
+import org.jetbrains.ktor.features.StatusPages
 import org.jetbrains.ktor.gson.GsonSupport
-import org.jetbrains.ktor.http.HttpHeaders
-import org.jetbrains.ktor.http.HttpMethod
+import org.jetbrains.ktor.http.*
 import org.jetbrains.ktor.locations.Locations
+import org.jetbrains.ktor.response.respond
 import org.jetbrains.ktor.response.respondText
 import org.jetbrains.ktor.routing.get
 import org.jetbrains.ktor.routing.routing
@@ -33,6 +35,15 @@ fun Application.main() {
         allowCredentials = true
         maxAge = Duration.ofDays(1)
     }
+    install(StatusPages){
+        status(HttpStatusCode.NotFound) {
+            call.respond(TextContent("${it.value} ${it.description}", ContentType.Text.Plain.withCharset(Charsets.UTF_8), it))
+        }
+        exception<Throwable> { cause ->
+            call.respond(HttpStatusCode.InternalServerError)
+        }
+    }
+
     install(Sessions) {
         cookie<UserSession>("SESSION") {
             cookie.path = "/"
